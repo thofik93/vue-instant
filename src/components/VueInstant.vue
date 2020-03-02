@@ -21,8 +21,8 @@
                 @click="selectedAction(index)" 
                 v-for="(item, index) in similiarData" 
                 :class="[getClassHighlighted(index), {
-                  'vue-instant__suggestions__heading': item === 'produk', 
-                  'vue-instant__suggestions__heading': item === 'brand'
+                  'vue-instant__suggestions__heading': item[suggestionAttribute].toLowerCase() === 'produk', 
+                  'vue-instant__suggestions__heading': item[suggestionAttribute].toLowerCase() === 'brand'
                 }]"
               >{{item[suggestionAttribute]}}</li>
             </ul>
