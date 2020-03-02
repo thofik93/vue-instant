@@ -17,7 +17,14 @@
             </button>
           <div v-if="modeIsFull" class='el-input-group__append'>
             <ul v-on-clickaway="away" v-if="suggestionsIsVisible && showSuggestions" class="vue-instant__suggestions">
-              <li @click="selectedAction(index)" v-for="(item, index) in similiarData" :class="getClassHighlighted(index)">{{item[suggestionAttribute]}}</li>
+              <li 
+                @click="selectedAction(index)" 
+                v-for="(item, index) in similiarData" 
+                :class="[getClassHighlighted(index), {
+                  'vue-instant__suggestions__heading': item === 'produk', 
+                  'vue-instant__suggestions__heading': item === 'brand'
+                }]"
+              >{{item[suggestionAttribute]}}</li>
             </ul>
           </div>
         </div>
