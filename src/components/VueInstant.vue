@@ -3,28 +3,61 @@
     <div class="main">
       <form novalidate="novalidate" onsubmit="return false;" :class="getFormClass">
         <div role="search" :class="getClassWrapper">
-          <input type="search" name="search" :placeholder="getPlaceholder" autocomplete="off" required="required" :class="getClassInputPlaceholder" tabindex="-1">
-          <input :disabled="disabled" @click="emitClickInput" @keyup='changeText' v-model='textVal' type="search" :name="name" placeholder="" autocomplete="off" required="required" :class="getClassInput" :autofocus="autofocus">
+          <!-- <input type="search" name="search" :placeholder="getPlaceholder" autocomplete="off" required="required" :class="getClassInputPlaceholder" tabindex="-1"> -->
+          <input :disabled="disabled" @click="emitClickInput" @keyup='changeText' v-model='textVal' type="search" :name="name" placeholder="" autocomplete="off" required="required" :class="getClassInput" :autofocus="autofocus" :placeholder="placeholder">
           <button @click="emitClickButton" type="submit" :class="getClassSubmit" tabindex="-1">
-              <svg role="img" aria-label="Search">
-                <use xmlns:xlink="http://www.w3.org/1999/xlink" :xlink:href="getSVGSearch"></use>
-              </svg>
-            </button>
-          <button @click="reset" type="reset" :class="getClassReset" tabindex="-1">
-              <svg role="img" aria-label="Reset">
-                <use xmlns:xlink="http://www.w3.org/1999/xlink" :xlink:href="getSVGClear"></use>
-              </svg>
-            </button>
+            <svg role="img" aria-label="Search">
+              <use xmlns:xlink="http://www.w3.org/1999/xlink" :xlink:href="getSVGSearch"></use>
+            </svg>
+          </button>
+          <button @click="reset" type="reset" :class="getClassReset" tabindex="-1" v-if="!isLoading">
+            <svg role="img" aria-label="Reset">
+              <use xmlns:xlink="http://www.w3.org/1999/xlink" :xlink:href="getSVGClear"></use>
+            </svg>
+          </button>
+          <div class="sbx-google__loading" v-if="isLoading">
+            <transition name="loader">
+              <div class="loaderspinwrap">
+                <div class="loaderspin"></div>
+              </div>
+            </transition>
+          </div>
           <div v-if="modeIsFull" class='el-input-group__append'>
             <ul v-on-clickaway="away" v-if="suggestionsIsVisible && showSuggestions" class="vue-instant__suggestions">
-              <li 
-                @click="selectedAction(index)" 
-                v-for="(item, index) in similiarData" 
-                :class="[getClassHighlighted(index), {
-                  'vue-instant__suggestions__heading': item[suggestionAttribute].toLowerCase() === 'produk', 
-                  'vue-instant__suggestions__heading': item[suggestionAttribute].toLowerCase() === 'brand'
-                }]"
-              >{{item[suggestionAttribute]}}</li>
+              <li class="result-items__heading" v-if="isProductExists">Produk</li>
+              <template 
+                v-for="(item, index) in suggestions" 
+                v-if="item.type_data === 'product'"
+              >
+                <li 
+                  @click="selectedAction(index)" 
+                  :class="getClassHighlighted(index)"
+                >
+                  <router-link
+                    :data-index="index"
+                    :key="index + 'srp'"
+                    :to="productLink(item)"
+                    class="search-result__name"
+                  >{{item[suggestionAttribute]}}</router-link>
+                </li>
+              </template>
+              <li class="result-items__heading" v-if="isBrandsExists">Brand</li>
+              <template 
+                v-for="(item, index) in suggestions" 
+                v-if="item.type_data === 'brand'"
+              >
+                <li 
+                  @click="selectedAction(index)" 
+                  :class="getClassHighlighted(index)"
+                >
+                  <router-link
+                    :data-index="index"
+                    :key="index + 'srp'"
+                    :to="brandLink(item)"
+                    class="search-result__name"
+                  >{{item[suggestionAttribute]}}</router-link>
+                </li>
+              </template>
             </ul>
           </div>
         </div>
@@ -94,18 +127,23 @@
       'suggestOnAllWords': {
         type: Boolean,
         default: false
+      },
+      'isLoading': {
+        type: Boolean,
+        default: false
       }
     },
     data() {
       return {
+        textVal: '',
         selectedEvent: null,
         selectedSuggest: null,
         inputChanged: false,
         suggestionsIsVisible: true,
         highlightedIndex: 0,
-        highlightedIndexMax: 7,
+        highlightedIndexMax: 20,
         similiarData: [],
-        placeholderVal: this.placeholder,
+        isValueChangeFromKeyboard: false,
         types: [{
             name: 'facebook',
             formClass: 'searchbox sbx-facebook',
@@ -188,13 +226,40 @@
           this.findSuggests();
         }
       },
-      placeholder: function(val) {
+      placeholder (val) {
         if (this.textValIsEmpty()) {
           this.placeholderVal = val
+        }
+      },
+      textVal (v) {
+        if (!this.isValueChangeFromKeyboard) {
+          this.$emit('input', v)
         }
       }
     },
     computed: {
+      isBrandsExists () {
+        var isExists = false;
+        if (this.similiarData.length) {
+          this.similiarData.forEach((item, key) => {
+            if (item.type_data === 'brand') {
+              isExists = true
+            }
+          })
+        }
+        return isExists
+      },
+      isProductExists () {
+        var isExists = false;
+        if (this.similiarData.length) {
+          this.similiarData.forEach((item, key) => {
+            if (item.type_data === 'product') {
+              isExists = true
+            }
+          })
+        }
+        return isExists
+      },
       getPlaceholder() {
         if (this.inputChanged || this.textValIsEmpty()) {
           return this.placeholderVal
@@ -241,18 +306,36 @@
       getSVGClear() {
         var type = this.getType()
         return type.svgClear
-      },
-  
-      textVal: {
-        get() {
-          return this.value
-        },
-        set(v) {
-          this.$emit('input', v)
-        }
       }
     },
     methods: {
+      slug (value) {
+        if(typeof value === 'string') {
+          var s = value.toLowerCase()
+          s = s.replace(/[^a-z0-9]+/g, "-")
+               .replace(/^-+|-+$/g, "-")
+               .replace(/^-+|-+$/g, '');
+          return s;
+        }
+
+        return null;
+      },
+      brandLink(brand) {
+        if (brand.slug) {
+          return `/${brand.slug}`
+        }
+        return  `/${brand.my_sociolla_sql_id}_${this.slug(brand.name)}`;
+      },
+      productLink (product) {
+        var categoryName = (product.default_category && product.default_category.name) 
+            ? this.slug(product.default_category.name) 
+            : 'product'
+        if (product.slug) {
+          return `/${categoryName}/${product.slug}`;
+        }
+        let productName = product.name ? this.slug(product.name) : 'default'
+        return `/${categoryName}/${product.id}-${productName}.html`;
+      },
       decrementHighlightedIndex() {
         this.highlightedIndex -= 1
       },
@@ -267,11 +350,13 @@
         this.emitEscape()
       },
       arrowRightAction() {
+        this.isValueChangeFromKeyboard = true
         this.setPlaceholderAndTextVal()
         this.emitKeyRight()
       },
       arrowDownAction() {
         if (this.arrowDownValidation()) {
+          this.isValueChangeFromKeyboard = true
           this.incrementHighlightedIndex()
           this.setPlaceholderAndTextVal()
           this.emitKeyDown()
@@ -281,6 +366,7 @@
       },
       arrowUpAction() {
         if (this.highlightedIndex > 0) {
+          this.isValueChangeFromKeyboard = true
           this.decrementHighlightedIndex()
           this.setPlaceholderAndTextVal()
           this.emitKeyUp()
@@ -289,6 +375,7 @@
         }
       },
       enterAction() {
+        this.isValueChangeFromKeyboard = false
         this.setFinalTextValue()
         this.clearHighlightedIndex()
         this.clearSimilarData()
@@ -302,7 +389,7 @@
         this.emitSelected()
       },
       addRegister(o) {
-        if (this.isSimilar(o) && this.textValIsNotEmpty()) {
+        if ((this.isSimilar(o) && this.textValIsNotEmpty())) {
           this.addSuggestion(o)
         }
       },
@@ -313,7 +400,7 @@
       },
       addToSimilarData(o) {
         if (this.canAddToSimilarData()) {
-          this.placeholderVal = this.letterProcess(o)
+          //this.placeholderVal = this.letterProcess(o)
           this.selectedSuggest = o
           this.emitSelected()
           this.similiarData.unshift(o)
@@ -322,7 +409,6 @@
       setTextValue(e) {
         if (e.target.value.trim()) {
           this.textVal = e.target.value
-          this.emitChange()
         }
       },
       setSelectedAsTextValue() {
@@ -333,8 +419,8 @@
       },
       setFinalTextValue() {
         if (this.finalTextValueValidation()) {
+          this.isValueChangeFromKeyboard = false
           this.setPlaceholderAndTextVal()
-          this.emitChange()
         } else {
           this.clearAll()
         }
@@ -342,14 +428,21 @@
       setPlaceholderAndTextVal() {
         if (typeof this.similiarData[this.highlightedIndex] !== 'undefined') {
           var suggest = this.similiarData[this.highlightedIndex]
-          this.placeholderVal = suggest[this.suggestionAttribute]
-          this.textVal = suggest[this.suggestionAttribute]
+          //this.placeholderVal = suggest[this.suggestionAttribute]
+          if (this.isValueChangeFromKeyboard) {
+            this.$emit('value-change', suggest[this.suggestionAttribute])
+            this.textVal = suggest[this.suggestionAttribute]  
+          }
+          else {
+            this.textVal = suggest[this.suggestionAttribute]  
+          }
+          
           this.selectedSuggest = suggest
           this.emitSelected()
         }
       },
       setInitialPlaceholder() {
-        this.placeholderVal = this.placeholder
+        //this.placeholderVal = this.placeholder
       },
       setBlur() {
         this.$el.blur()
@@ -409,6 +502,7 @@
             var isMatch = false;
             var words = o[this.suggestionAttribute].split(" ");
             var textValWords = this.textVal.split(" ");
+
             if (words.length > 0) {
               words.forEach(function(word) {
                 if (textValWords.length > 0) {
@@ -489,13 +583,14 @@
           this.clearSimilarData()
           this.setInitialPlaceholder()
         } else {
-          this.placeholderVal = ''
+          //this.placeholderVal = this.placeholder
         }
       },
       clearHighlightedIndex() {
         this.highlightedIndex = 0
       },
       changeText(e) {
+        this.isValueChangeFromKeyboard = false
         this.selectedEvent = e.code
         this.setTextValue(e)
         this.processChangeText()
@@ -518,9 +613,6 @@
         this.suggestionsIsVisible = false
         this.emitSelected()
       },
-      emitChange() {
-        // this.$emit('input', this.textVal)
-      },
       emitClickInput(event) {
         this.$emit('click-input', event)
       },
@@ -528,7 +620,7 @@
         this.$emit('click-button', this.textVal)
       },
       emitEnter() {
-        this.$emit('enter')
+        this.$emit('enter', this.textVal)  
       },
       emitKeyUp() {
         this.$emit('key-up')
@@ -1637,5 +1729,10 @@
     position: absolute;
     left: 0 !important;
     background: rgba(255, 255, 255, 0) !important;
+  }
+
+  .sbx-google__reset {
+    top: 5px;
+    right: 9px;
   }
 </style>

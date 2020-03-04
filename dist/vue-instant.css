@@ -966,3 +966,7 @@
   left: 0 !important;
   background: rgba(255, 255, 255, 0) !important;
 }
+.sbx-google__reset {
+  top: 5px;
+  right: 9px;
+}
