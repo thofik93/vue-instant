@@ -40,7 +40,7 @@
                     :to="productLink(item)"
                     class="search-result__name"
                     @click.native="reset"
-                    v-html="$options.filters.highlightKeyword(item[suggestionAttribute], textVal) + ' - ' + $options.filters.highlightKeyword(item.brand.name, textVal)"
+                    v-html="$options.filters.highlightKeyword(item[suggestionAttribute], textVal)"
                   ></router-link>
                 </li>
               </template>
