@@ -5,12 +5,13 @@
         <div role="search" :class="getClassWrapper">
           <!-- <input type="search" name="search" :placeholder="getPlaceholder" autocomplete="off" required="required" :class="getClassInputPlaceholder" tabindex="-1"> -->
           <input :disabled="disabled" @click="emitClickInput" @keyup='changeText' v-model='textVal' type="search" :name="name" placeholder="" autocomplete="off" required="required" :class="getClassInput" :autofocus="autofocus" :placeholder="placeholder">
-          <button @click="emitClickButton" type="submit" :class="getClassSubmit" tabindex="-1">
+          <!-- <button @click="emitClickButton" type="submit" :class="getClassSubmit" tabindex="-1">
             <svg role="img" aria-label="Search">
               <use xmlns:xlink="http://www.w3.org/1999/xlink" :xlink:href="getSVGSearch"></use>
             </svg>
-          </button>
-          <button @click="reset" type="reset" :class="getClassReset" tabindex="-1" v-if="!isLoading">
+          </button> -->
+          <i class="icon icon_search" v-if="!isLoading && !textVal"></i>
+          <button @click="reset" type="reset" :class="getClassReset" tabindex="-1" v-if="!isLoading && textVal">
             <svg role="img" aria-label="Reset">
               <use xmlns:xlink="http://www.w3.org/1999/xlink" :xlink:href="getSVGClear"></use>
             </svg>
@@ -24,7 +25,7 @@
           </div>
           <div v-if="modeIsFull" class='el-input-group__append'>
             <ul v-on-clickaway="away" v-if="suggestionsIsVisible && showSuggestions" class="vue-instant__suggestions">
-              <li class="result-items__heading" v-if="isProductExists">Produk</li>
+              <li class="result-items__heading result-items__heading--product" v-if="isProductExists">Produk</li>
               <template 
                 v-for="(item, index) in suggestions" 
                 v-if="item.type_data === 'product'"
@@ -38,10 +39,12 @@
                     :key="index + 'srp'"
                     :to="productLink(item)"
                     class="search-result__name"
-                  >{{item[suggestionAttribute]}}</router-link>
+                    @click.native="reset"
+                    v-html="$options.filters.highlightKeyword(item[suggestionAttribute], textVal) + ' - ' + $options.filters.highlightKeyword(item.brand.name, textVal)"
+                  ></router-link>
                 </li>
               </template>
-              <li class="result-items__heading" v-if="isBrandsExists">Brand</li>
+              <li class="result-items__heading result-items__heading--brand" v-if="isBrandsExists">Brand</li>
               <template 
                 v-for="(item, index) in suggestions" 
                 v-if="item.type_data === 'brand'"
@@ -55,7 +58,9 @@
                     :key="index + 'srp'"
                     :to="brandLink(item)"
                     class="search-result__name"
-                  >{{item[suggestionAttribute]}}</router-link>
+                    @click.native="reset"
+                    v-html="$options.filters.highlightKeyword(item.name, textVal)"
+                  ></router-link>
                 </li>
               </template>
             </ul>
@@ -84,6 +89,24 @@
   export default {
     name: 'vueInstant',
     mixins: [clickaway],
+    filters: {
+      highlightKeyword(name, keyword) {
+        // if (name.toString().length >= 35) {
+        //   name = name.toString().substr(0, 35) + '...'
+        // }
+        const regex = new RegExp(keyword.trim(), "gi");
+        const matchedLetter = name.match(regex);
+        if (matchedLetter) {
+          const first = matchedLetter[0].charAt(0);
+          if (first === first.toUpperCase()) {
+            keyword = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+          }
+          return name.replace(regex, "<strong>" + matchedLetter[0] + "</strong>");
+        } else {
+            return name
+        }
+      }
+    },
     props: {
       'value': {
         type: String,
@@ -240,8 +263,8 @@
     computed: {
       isBrandsExists () {
         var isExists = false;
-        if (this.similiarData.length) {
-          this.similiarData.forEach((item, key) => {
+        if (this.suggestions.length) {
+          this.suggestions.forEach((item, key) => {
             if (item.type_data === 'brand') {
               isExists = true
             }
@@ -251,8 +274,8 @@
       },
       isProductExists () {
         var isExists = false;
-        if (this.similiarData.length) {
-          this.similiarData.forEach((item, key) => {
+        if (this.suggestions.length) {
+          this.suggestions.forEach((item, key) => {
             if (item.type_data === 'product') {
               isExists = true
             }
@@ -427,7 +450,7 @@
       },
       setPlaceholderAndTextVal() {
         if (typeof this.similiarData[this.highlightedIndex] !== 'undefined') {
-          var suggest = this.similiarData[this.highlightedIndex]
+          var suggest = this.suggestions[this.highlightedIndex]
           //this.placeholderVal = suggest[this.suggestionAttribute]
           if (this.isValueChangeFromKeyboard) {
             this.$emit('value-change', suggest[this.suggestionAttribute])
